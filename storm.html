@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Wallet Generator + ETH Balance + Valid Wallets</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; background: #f9f9f9; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { border: 1px solid #ccc; padding: 8px; }
+    th { background: #222; color: #fff; }
+    tr:nth-child(even) { background: #eee; }
+    button { padding: 10px 20px; font-size: 16px; margin-right: 10px; }
+    #validCount { margin-top: 15px; font-weight: bold; }
+    h3 { margin-top: 40px; }
+  </style>
+</head>
+<body>
+
+  <h2>Realtime Wallet Generator + ETH Balance</h2>
+  <button id="startBtn">Start Generating</button>
+  <button id="stopBtn" disabled>Stop Generating</button>
+  <div id="status">Idle</div>
+  <div id="validCount">Valid wallets found: 0</div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Seed Phrase</th>
+        <th>Address</th>
+        <th>Private Key</th>
+        <th>ETH Balance</th>
+      </tr>
+    </thead>
+    <tbody id="walletsBody"></tbody>
+  </table>
+
+  <h3>Valid Wallets (Non-zero ETH balance)</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Seed Phrase</th>
+        <th>Address</th>
+        <th>Private Key</th>
+        <th>ETH Balance</th>
+      </tr>
+    </thead>
+    <tbody id="validWalletsBody"></tbody>
+  </table>
+
+  <script type="module">
+    import { Wallet, JsonRpcProvider, formatEther } from "https://cdn.jsdelivr.net/npm/ethers@6.10.0/+esm";
+
+    const provider = new JsonRpcProvider("https://mainnet.infura.io/v3/572c425c262542328e25f432d23eec3d");
+    const walletsBody = document.getElementById("walletsBody");
+    const validWalletsBody = document.getElementById("validWalletsBody");
+    const startBtn = document.getElementById("startBtn");
+    const stopBtn = document.getElementById("stopBtn");
+    const statusDiv = document.getElementById("status");
+    const validCountDiv = document.getElementById("validCount");
+
+    let totalCount = 0;
+    let validCount = 0;
+    let intervalId = null;
+
+    async function generateWallet() {
+      try {
+        const wallet = Wallet.createRandom();
+        const mnemonic = wallet.mnemonic.phrase;
+        const address = wallet.address;
+        const privateKey = wallet.privateKey;
+
+        const balance = await provider.getBalance(address);
+        const balanceEth = parseFloat(formatEther(balance));
+
+        // Add to main table
+        const row = walletsBody.insertRow();
+        row.insertCell(0).innerText = ++totalCount;
+        row.insertCell(1).innerText = mnemonic;
+        row.insertCell(2).innerText = address;
+        row.insertCell(3).innerText = privateKey;
+        row.insertCell(4).innerText = `${balanceEth} ETH`;
+
+        statusDiv.innerText = `Generated wallet #${totalCount}`;
+
+        // If valid (balance > 0), add to valid wallets table and increment count
+        if (balanceEth > 0) {
+          validCount++;
+          validCountDiv.innerText = `Valid wallets found: ${validCount}`;
+
+          const validRow = validWalletsBody.insertRow();
+          validRow.insertCell(0).innerText = validCount;
+          validRow.insertCell(1).innerText = mnemonic;
+          validRow.insertCell(2).innerText = address;
+          validRow.insertCell(3).innerText = privateKey;
+          validRow.insertCell(4).innerText = `${balanceEth} ETH`;
+        }
+      } catch (error) {
+        statusDiv.innerText = "Error generating wallet or fetching balance.";
+        console.error(error);
+      }
+    }
+
+    startBtn.addEventListener("click", () => {
+      if (intervalId) return;
+      intervalId = setInterval(generateWallet, 1500);
+      startBtn.disabled = true;
+      stopBtn.disabled = false;
+      statusDiv.innerText = "Generating wallets...";
+    });
+
+    stopBtn.addEventListener("click", () => {
+      clearInterval(intervalId);
+      intervalId = null;
+      startBtn.disabled = false;
+      stopBtn.disabled = true;
+      statusDiv.innerText = "Stopped.";
+    });
+  </script>
+</body>
+</html>
